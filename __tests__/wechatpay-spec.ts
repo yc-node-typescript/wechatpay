@@ -1,3 +1,4 @@
+import { parseXML } from '../src/utils';
 import {
   IConfig,
   IQueryOrderParams,
@@ -101,3 +102,26 @@ test('Should refund an order', async () => {
     return_msg: '订单未支付，不需要发起退款',
   });
 });
+
+test('Should Verified signature', () => {
+   const issign =  wechatpay.signVerify({sign : "123"});
+   expect(issign).toBe(false);
+})
+
+test('Should Return SUCCESS' ,async () => {
+   const status = wechatpay.success();
+   const suobj = await parseXML(status);
+   expect(suobj).toMatchObject({
+       return_code : 'SUCCESS',
+       return_msg : 'OK',
+   });
+})
+
+test('Should Return FAIL' ,async () => {
+   const status = wechatpay.fail();
+   const faobj = await parseXML(status);
+   expect(faobj).toMatchObject({
+       return_code : 'FAIL',
+       return_msg : '签名失败',
+   });
+})

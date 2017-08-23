@@ -325,10 +325,10 @@ export class Wechatpay {
   }
 
   public success(): string {
-    return utils.buildXML({ xml: { return_code: 'SUCCESS' } });
+    return utils.buildXML({ xml: { return_code: 'SUCCESS' , return_msg : 'OK' } });
   }
 
   public fail(): string {
-    return utils.buildXML({ xml: { return_code: 'FAIL' } });
+    return utils.buildXML({ xml: { return_code: 'FAIL' , return_msg : '签名失败' } });
   }
 }
