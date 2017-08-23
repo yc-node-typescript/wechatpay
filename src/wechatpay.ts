@@ -186,7 +186,9 @@ export class Wechatpay {
     return configData;
   }
 
-  public queryOrder(queryParams: IQueryOrderParams): Promise<IQueryOrderResult> {
+  public queryOrder(
+    queryParams: IQueryOrderParams
+  ): Promise<IQueryOrderResult> {
     const query = queryParams as any;
     return new Promise((resolve, reject) => {
       query.nonce_str = query.nonce_str || utils.createNonceStr();

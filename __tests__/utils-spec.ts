@@ -5,7 +5,7 @@ test('should parse an XML string', async () => {
   const obj = await parseXML(xml);
   expect(obj).toMatchObject({
     a: '1',
-    b: '2'
+    b: '2',
   });
 });
 
@@ -21,4 +21,4 @@ test('should create nonceStr', () => {
   expect(str1.length).toBe(20);
   expect(str2.length).toBe(24);
   expect(str3.length).toBe(32);
-})
+});
