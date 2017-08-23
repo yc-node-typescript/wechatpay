@@ -1,6 +1,5 @@
 import { createHash } from 'crypto';
-import { readFileSync } from 'fs';
-import * as request from 'request';
+import * as rp from 'request-promise';
 import { urls } from './urls';
 import * as utils from './utils';
 
@@ -62,7 +61,7 @@ export interface ICloseResult {
   result_code: string;
 }
 
-export interface IAPPOrderResult {
+export interface IPayment {
   partnerid: string; // merchant id
   prepayid: string; // prepay id
   noncestr: string; // nonce
@@ -100,6 +99,13 @@ export interface IRefundResult {
   cash_refund_fee: string;
 }
 
+export interface IQueryRefundParams {
+  out_trade_no?: string;
+  transaction_id?: string;
+  out_refund_no?: string;
+  refund_id?: string;
+}
+
 export interface IQueryRefundResult {
   appid: string;
   cash_fee: string;
@@ -125,11 +131,6 @@ export interface IQueryRefundResult {
 export class Wechatpay {
   private __config: IConfig;
   constructor(config: IConfig) {
-    if (!config.appid || !config.mch_id) {
-      throw new Error(
-        'Seems that app id or merchant id is not set, please provide wechat app id and merchant id.'
-      );
-    }
     this.__config = config;
   }
 
@@ -137,47 +138,29 @@ export class Wechatpay {
     return this.__config;
   }
 
-  public createUnifiedOrder(orderParams: IOrderParams): Promise<IOrderResult> {
+  public async createUnifiedOrder(
+    orderParams: IOrderParams
+  ): Promise<IOrderResult> {
     const order = orderParams as any;
-    return new Promise((resolve, reject) => {
-      order.nonce_str = order.nonce_str || utils.createNonceStr();
-      order.appid = this.config.appid;
-      order.mch_id = this.config.mch_id;
-      order.sign = utils.sign(order, this.config.apiKey);
-      const requestParam = {
-        url: urls.UNIFIED_ORDER,
-        method: 'POST',
-        body: utils.buildXML(order),
-      };
-      request(requestParam, (err, response, body) => {
-        if (err) {
-          reject(err);
-        }
-        utils
-          .parseXML(body)
-          .then((result: IOrderResult) => {
-            resolve(result);
-          })
-          .catch(err => {
-            reject(err);
-          });
-      });
-    });
+    order.nonce_str = order.nonce_str || utils.createNonceStr();
+    order.appid = this.config.appid;
+    order.mch_id = this.config.mch_id;
+    order.sign = utils.sign(order, this.config.apiKey);
+    const requestParam = {
+      url: urls.UNIFIED_ORDER,
+      method: 'POST',
+      body: utils.buildXML(order),
+    };
+    const res = await rp(requestParam);
+    const xml = await utils.parseXML(res);
+    return xml;
   }
 
-  public async createUnifiedOrderForApp(
-    obj: IOrderParams
-  ): Promise<IAPPOrderResult> {
-    const res = await this.createUnifiedOrder(obj);
-    if (res.return_code !== 'SUCCESS') throw new Error(res.return_msg);
-    return this.configForPayment(res.prepay_id);
-  }
-
-  public configForPayment(prepayId: string) {
+  public configForPayment(orderResult: IOrderResult): IPayment {
     const configData: any = {
       appid: this.config.appid,
       partnerid: this.config.mch_id,
-      prepayid: prepayId,
+      prepayid: orderResult.prepay_id,
       package: 'Sign=WXPay',
       noncestr: utils.createNonceStr(),
       timestamp: Math.floor(new Date().getTime() / 1000),
@@ -186,135 +169,88 @@ export class Wechatpay {
     return configData;
   }
 
-  public queryOrder(
+  public async queryOrder(
     queryParams: IQueryOrderParams
   ): Promise<IQueryOrderResult> {
     const query = queryParams as any;
-    return new Promise((resolve, reject) => {
-      query.nonce_str = query.nonce_str || utils.createNonceStr();
-      query.appid = this.config.appid;
-      query.mch_id = this.config.mch_id;
-      query.sign = utils.sign(query, this.config.apiKey);
+    query.nonce_str = query.nonce_str || utils.createNonceStr();
+    query.appid = this.config.appid;
+    query.mch_id = this.config.mch_id;
+    query.sign = utils.sign(query, this.config.apiKey);
 
-      request(
-        {
-          url: urls.ORDER_QUERY,
-          method: 'POST',
-          body: utils.buildXML({ xml: query }),
-        },
-        (err, res, body) => {
-          utils
-            .parseXML(body)
-            .then((result: IQueryOrderResult) => {
-              resolve(result);
-            })
-            .catch(err => {
-              reject(err);
-            });
-        }
-      );
+    const res = await rp({
+      url: urls.ORDER_QUERY,
+      method: 'POST',
+      body: utils.buildXML({ xml: query }),
     });
+    const xml = await utils.parseXML(res);
+    return xml;
   }
 
-  public closeOrder(orderParams: IQueryOrderParams): Promise<ICloseResult> {
-    const order = orderParams as any;
-    return new Promise((resolve, reject) => {
-      order.nonce_str = order.nonce_str || utils.createNonceStr();
-      order.appid = this.config.appid;
-      order.mch_id = this.config.mch_id;
-      order.sign = utils.sign(order, this.config.apiKey);
-
-      request(
-        {
-          url: urls.CLOSE_ORDER,
-          method: 'POST',
-          body: utils.buildXML({ xml: order }),
-        },
-        (err, res, body) => {
-          utils
-            .parseXML(body)
-            .then(result => {
-              resolve(result as ICloseResult);
-            })
-            .catch(err => {
-              reject(err);
-            });
-        }
-      );
-    });
-  }
-
-  public refund(orderParams: IRefundParams): Promise<IRefundResult> {
-    const order = orderParams as any;
-    return new Promise((resolve, reject) => {
-      order.nonce_str = order.nonce_str || utils.createNonceStr();
-      order.appid = this.config.appid;
-      order.mch_id = this.config.mch_id;
-      order.sign = utils.sign(order, this.config.apiKey);
-
-      request(
-        {
-          url: urls.REFUND,
-          method: 'POST',
-          body: utils.buildXML({ xml: order }),
-          agentOptions: {
-            pfx: this.config.pfx,
-            passphrase: this.config.mch_id,
-          },
-        },
-        (err, response, body) => {
-          utils
-            .parseXML(body)
-            .then(result => {
-              resolve(result as IRefundResult);
-            })
-            .catch(err => {
-              reject(err);
-            });
-        }
-      );
-    });
-  }
-
-  public queryRefund(
+  public async closeOrder(
     orderParams: IQueryOrderParams
+  ): Promise<ICloseResult> {
+    const order = orderParams as any;
+    order.nonce_str = order.nonce_str || utils.createNonceStr();
+    order.appid = this.config.appid;
+    order.mch_id = this.config.mch_id;
+    order.sign = utils.sign(order, this.config.apiKey);
+
+    const res = await rp({
+      url: urls.CLOSE_ORDER,
+      method: 'POST',
+      body: utils.buildXML({ xml: order }),
+    });
+    const xml = await utils.parseXML(res);
+    return xml;
+  }
+
+  public async refund(orderParams: IRefundParams): Promise<IRefundResult> {
+    const order = orderParams as any;
+    order.nonce_str = order.nonce_str || utils.createNonceStr();
+    order.appid = this.config.appid;
+    order.mch_id = this.config.mch_id;
+    order.sign = utils.sign(order, this.config.apiKey);
+
+    const res = await rp({
+      url: urls.REFUND,
+      method: 'POST',
+      body: utils.buildXML({ xml: order }),
+      agentOptions: {
+        pfx: this.config.pfx,
+        passphrase: this.config.mch_id,
+      },
+    });
+    const xml = await utils.parseXML(res);
+    return xml;
+  }
+
+  public async queryRefund(
+    orderParams: IQueryRefundParams
   ): Promise<IQueryRefundResult> {
     const order = orderParams as any;
-    return new Promise((resolve, reject) => {
-      if (
-        !(
-          order.transaction_id ||
-          order.out_trade_no ||
-          order.out_refund_no ||
-          order.refund_id
-        )
-      ) {
-        reject(new Error('缺少参数'));
-      }
+    if (
+      !(
+        order.transaction_id ||
+        order.out_trade_no ||
+        order.out_refund_no ||
+        order.refund_id
+      )
+    )
+      throw new Error('缺少参数');
 
-      order.nonce_str = order.nonce_str || utils.createNonceStr();
-      order.appid = this.config.appid;
-      order.mch_id = this.config.mch_id;
-      order.sign = utils.sign(order, this.config.apiKey);
+    order.nonce_str = order.nonce_str || utils.createNonceStr();
+    order.appid = this.config.appid;
+    order.mch_id = this.config.mch_id;
+    order.sign = utils.sign(order, this.config.apiKey);
 
-      request(
-        {
-          url: urls.REFUND_QUERY,
-          method: 'POST',
-          body: utils.buildXML({ xml: order }),
-        },
-        (err, response, body) => {
-          utils
-            .parseXML(body)
-            .then(result => {
-              resolve(result as IQueryRefundResult);
-            })
-            .catch(err => {
-              reject(err);
-            });
-        }
-      );
+    const res = await rp({
+      url: urls.REFUND_QUERY,
+      method: 'POST',
+      body: utils.buildXML({ xml: order }),
     });
+    const xml = await utils.parseXML(res);
+    return xml;
   }
 
   public signVerify(notification): boolean {
@@ -325,10 +261,12 @@ export class Wechatpay {
   }
 
   public success(): string {
-    return utils.buildXML({ xml: { return_code: 'SUCCESS' , return_msg : 'OK' } });
+    return utils.buildXML({
+      xml: { return_code: 'SUCCESS', return_msg: 'OK' },
+    });
   }
 
   public fail(): string {
-    return utils.buildXML({ xml: { return_code: 'FAIL' , return_msg : '签名失败' } });
+    return utils.buildXML({ xml: { return_code: 'FAIL', return_msg: '签名失败' } });
   }
 }

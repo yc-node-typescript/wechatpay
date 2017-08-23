@@ -46,8 +46,9 @@ test('Should create an order', async () => {
     trade_type: 'APP',
   };
 
-  const appOrder = await wechatpay.createUnifiedOrderForApp(orderParams);
-  expect(appOrder).toMatchObject({
+  const order = await wechatpay.createUnifiedOrder(orderParams);
+  const payment = wechatpay.configForPayment(order);
+  expect(payment).toMatchObject({
     partnerid: expect.stringMatching(/\d{10}/),
     prepayid: expect.stringMatching(/[a-z0-9]{36}/),
     noncestr: expect.stringMatching(/.+/),
@@ -103,25 +104,43 @@ test('Should refund an order', async () => {
   });
 });
 
+test('Should query a refund', async () => {
+  const queryRefund = await wechatpay.queryRefund({
+    out_trade_no: out_trade_no,
+  });
+  expect(queryRefund).toMatchObject({
+    appid: appid,
+    err_code: 'REFUNDNOTEXIST',
+    err_code_des: 'not exist',
+    mch_id: mch_id,
+    nonce_str: expect.stringMatching(/.+/),
+    result_code: 'FAIL',
+    return_code: 'SUCCESS',
+    return_msg: 'OK',
+    sign: expect.stringMatching(/[A-Z0-9]{32}/),
+  });
+  expect(wechatpay.queryRefund({})).rejects.toMatch('error');
+});
+
 test('Should Verified signature', () => {
-   const issign =  wechatpay.signVerify({sign : "123"});
-   expect(issign).toBe(false);
-})
+  const issign = wechatpay.signVerify({ sign: '123' });
+  expect(issign).toBe(false);
+});
 
-test('Should Return SUCCESS' ,async () => {
-   const status = wechatpay.success();
-   const suobj = await parseXML(status);
-   expect(suobj).toMatchObject({
-       return_code : 'SUCCESS',
-       return_msg : 'OK',
-   });
-})
+test('Should Return SUCCESS', async () => {
+  const status = wechatpay.success();
+  const suobj = await parseXML(status);
+  expect(suobj).toMatchObject({
+    return_code: 'SUCCESS',
+    return_msg: 'OK',
+  });
+});
 
-test('Should Return FAIL' ,async () => {
-   const status = wechatpay.fail();
-   const faobj = await parseXML(status);
-   expect(faobj).toMatchObject({
-       return_code : 'FAIL',
-       return_msg : '签名失败',
-   });
-})
+test('Should Return FAIL', async () => {
+  const status = wechatpay.fail();
+  const faobj = await parseXML(status);
+  expect(faobj).toMatchObject({
+    return_code: 'FAIL',
+    return_msg: '签名失败',
+  });
+});

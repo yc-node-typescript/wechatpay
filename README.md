@@ -26,7 +26,7 @@ const wechatpay = new Wechatpay({
 });
 ```
 
-## 创建APP订单
+## 创建订单
 ```ts
 const orderParams: IOrderParams = {
   body: '支付测试', // 商品或支付单简要描述
@@ -37,5 +37,60 @@ const orderParams: IOrderParams = {
   trade_type: 'APP', // APP, JSAPI, NATIVE etc.
 };
 
-const appOrder = await wechatpay.createUnifiedOrderForApp(orderParams);
+const order = await wechatpay.createUnifiedOrder(orderParams);
+```
+
+## 创建支付对象
+> 支付对象是客户端用于发起支付的凭据
+```ts
+const payment = wechatpay.configForPayment(order);
+```
+
+## 查寻订单
+```ts
+const queryOrder = await wechatpay.queryOrder({
+  out_trade_no: 'xxx',
+});
+```
+
+## 关闭订单
+```ts
+const closeOrder = await wechatpay.closeOrder({
+  out_trade_no: 'xxx',
+});
+```
+
+## 退款
+```ts
+const refundOrder = await wechatpay.refund({
+  out_trade_no: 'xxx',
+  out_refund_no: 'xxx', // 退款流水号，同一流水号多次退款只会处理一次
+  total_fee: 100, // 订单总额
+  refund_fee: 100, // 退款金额
+});
+```
+
+## 退款查寻
+```ts
+const queryRefund = await wechatpay.queryRefund({
+  out_trade_no: 'xxx',
+});
+```
+
+## 反馈信息验证
+> 支付成功后微信给后台反馈的信息为XML格式。
+为了安全，我们需要对信息进行验证。
+```ts
+const xml = `微信通知的内容`
+const obj = `转xml为Object`
+const isSignOk = wechatpay.signVerify(obj);
+```
+
+## 给微信返回结果
+> 微信反馈信息后，我们需要回复成功或失败，格式为XML。
+不然微信会持续发送反馈信息。
+下面两个方法会创建XML格式的回复信息。
+```ts
+const success: string = wechatpay.success(); // 成功XML信息
+const fail: string = wechatpay.fail(); // 失败XML信息
 ```

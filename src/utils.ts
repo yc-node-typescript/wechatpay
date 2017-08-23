@@ -1,27 +1,21 @@
 import { createHash } from 'crypto';
 import * as xml2js from 'xml2js';
-import * as nhm  from 'nhm';
+import * as nhm from 'nhm';
+
 export function sign(object, key) {
   let querystring = createQueryString(object);
   querystring += '&key=' + key;
   return createHash('md5').update(querystring).digest('hex').toUpperCase();
 }
 
-export function shaSign(object) {
-  // var querystring = createQueryString(object);
-  // let shaObj = new jsSHA("SHA-1", 'TEXT');
-  // shaObj.update(querystring);
-  // return shaObj.getHash('HEX');
-}
-
 export function createNonceStr(length?: number): string {
   length = length || 24;
   if (length > 32) length = 32;
-  return new nhm(length , {
-     lowerCase : true,
-     upperCase : false,
-     number: true,
-     symbol: false,
+  return new nhm(length, {
+    lowerCase: true,
+    upperCase: false,
+    number: true,
+    symbol: false,
   }).toString();
 }
 
@@ -46,7 +40,7 @@ export function buildXML(json) {
   return builder.buildObject(json);
 }
 
-export function parseXML(xml) {
+export function parseXML(xml): Promise<any> {
   return new Promise((resolve, reject) => {
     const parser = new xml2js.Parser({
       trim: true,
