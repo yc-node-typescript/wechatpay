@@ -1,14 +1,15 @@
-import WechatPayment from 'wechat-payment-node';
-import WechatPaymentUtils from 'wechat-payment-node/lib/utils';
 import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
+import * as request from 'request';
+import { urls } from './urls';
+import * as utils from './utils';
 
 export interface IConfig {
   appid: string; // APP ID
   mch_id: string; // 商户 ID
-  apiKey: string; //微信商户平台API密钥
+  apiKey: string; // 微信商户平台API密钥
   notify_url: string; // 回调URL地址
-  trade_type: 'APP'; //APP, JSAPI, NATIVE etc.
+  trade_type: 'APP'; // APP, JSAPI, NATIVE etc.
   pfx: Buffer; // p12文件位置
 }
 
@@ -33,30 +34,12 @@ export interface IOrderResult {
   trade_type: 'JSAPI' | 'APP' | 'NATIVE';
 }
 
-export interface IOrder {
-  out_trade_no: string;
+export interface IQueryOrderParams {
+  out_trade_no?: string;
+  transaction_id?: string;
 }
 
-export interface IcloseResult {
-  return_code: 'SUCCESS' | 'FAIL';
-  return_msg: string;
-  appid: string;
-  mch_id: string;
-  nonce_str: string;
-  sign: string;
-  result_code: string;
-}
-
-
-export interface IAPPOrderResult {
-  partnerid: string; // merchant id
-  prepayid: string; // prepay id
-  noncestr: string; // nonce
-  timestamp: string; // timestamp
-  sign: string; // signed string
-}
-
-export interface Iquertorder {
+export interface IQueryOrderResult {
   return_code: 'SUCCESS' | 'FAIL';
   return_msg: string;
   appid: string;
@@ -69,7 +52,34 @@ export interface Iquertorder {
   trade_state_desc: string;
 }
 
-export interface IRefund {
+export interface ICloseResult {
+  return_code: 'SUCCESS' | 'FAIL';
+  return_msg: string;
+  appid: string;
+  mch_id: string;
+  nonce_str: string;
+  sign: string;
+  result_code: string;
+}
+
+export interface IAPPOrderResult {
+  partnerid: string; // merchant id
+  prepayid: string; // prepay id
+  noncestr: string; // nonce
+  timestamp: string; // timestamp
+  sign: string; // signed string
+}
+
+export interface IRefundParams extends IQueryOrderParams {
+  out_refund_no: string;
+  total_fee: number;
+  refund_fee: number;
+  refund_fee_type?: string;
+  refund_desc?: string;
+  refund_account?: string;
+}
+
+export interface IRefundResult {
   return_code: 'SUCCESS' | 'FAIL';
   return_msg: string;
   appid: string;
@@ -90,7 +100,7 @@ export interface IRefund {
   cash_refund_fee: string;
 }
 
-export interface IQueryRefund {
+export interface IQueryRefundResult {
   appid: string;
   cash_fee: string;
   mch_id: string;
@@ -112,85 +122,211 @@ export interface IQueryRefund {
   transaction_id: string;
 }
 
-export interface IWechatpay {
-  signVerify: (xml: any) => Promise<boolean>;
-  success: () => string;
-  fail: () => string;
-  createUnifiedOrder: (obj: IOrderParams) => Promise<IOrderResult>;
-  createUnifiedOrderForApp: (obj: IOrderParams) => Promise<IAPPOrderResult>;
-  queryorder: (obj: IOrder) => Promise<Iquertorder>; //查询订单
-  closeorder: (obj: IOrder) => Promise<IcloseResult>; //关闭订单
-  Refundorder: (obj: IOrder) => Promise<IRefund>;
-  QueryRefund: (obj: IOrder) => Promise<IQueryRefund>;
-
-}
-
-export class Wechatpay extends WechatPayment implements IWechatpay {
+export class Wechatpay {
   private __config: IConfig;
-
   constructor(config: IConfig) {
-    super(config);
+    if (!config.appid || !config.mch_id) {
+      throw new Error(
+        'Seems that app id or merchant id is not set, please provide wechat app id and merchant id.'
+      );
+    }
     this.__config = config;
   }
 
-  get config() {
+  get config(): IConfig {
     return this.__config;
   }
 
-  public Refundorder = (obj: IOrder): Promise<IRefund> => {
-    return super.refund(obj);
-  };
-
-  public QueryRefund = (obj: IOrder): Promise<IQueryRefund> => {
-    return super.queryRefund(obj);
+  public createUnifiedOrder(orderParams: IOrderParams): Promise<IOrderResult> {
+    const order = orderParams as any;
+    return new Promise((resolve, reject) => {
+      order.nonce_str = order.nonce_str || utils.createNonceStr();
+      order.appid = this.config.appid;
+      order.mch_id = this.config.mch_id;
+      order.sign = utils.sign(order, this.config.apiKey);
+      const requestParam = {
+        url: urls.UNIFIED_ORDER,
+        method: 'POST',
+        body: utils.buildXML(order),
+      };
+      request(requestParam, (err, response, body) => {
+        if (err) {
+          reject(err);
+        }
+        utils
+          .parseXML(body)
+          .then((result: IOrderResult) => {
+            resolve(result);
+          })
+          .catch(err => {
+            reject(err);
+          });
+      });
+    });
   }
 
-
-  public createUnifiedOrder = (obj: IOrderParams): Promise<IOrderResult> => {
-    return super.createUnifiedOrder(obj);
-  };
-
-  public queryorder = (obj: IOrder): Promise<Iquertorder> => {
-    return super.queryOrder(obj);
-  };
-
-  public closeorder = (obj: IOrder): Promise<IcloseResult> => {
-    return super.closeOrder(obj);
-  };
-
-  public signVerify = async notification => {
-    let dataForSign = Object.assign({}, notification);
-    delete dataForSign.sign;
-    let signValue = WechatPaymentUtils.sign(dataForSign, this.config.apiKey);
-    return signValue === notification.sign;
-  };
-
-  public createUnifiedOrderForApp = async (
+  public async createUnifiedOrderForApp(
     obj: IOrderParams
-  ): Promise<IAPPOrderResult> => {
-    let res = await this.createUnifiedOrder(obj);
+  ): Promise<IAPPOrderResult> {
+    const res = await this.createUnifiedOrder(obj);
     if (res.return_code !== 'SUCCESS') throw new Error(res.return_msg);
-    let params: any = {
+    return this.configForPayment(res.prepay_id);
+  }
+
+  public configForPayment(prepayId: string) {
+    const configData: any = {
       appid: this.config.appid,
-      partnerid: res.mch_id,
-      prepayid: res.prepay_id,
+      partnerid: this.config.mch_id,
+      prepayid: prepayId,
       package: 'Sign=WXPay',
-      noncestr: res.nonce_str,
-      timestamp: String(Math.floor(new Date().getTime() / 1000)),
+      noncestr: utils.createNonceStr(),
+      timestamp: Math.floor(new Date().getTime() / 1000),
     };
-    let str =
-      Object.keys(params).sort().map(k => `${k}=${params[k]}`).join('&') +
-      '&key=' +
-      this.config.apiKey;
-    params.sign = createHash('md5').update(str).digest('hex').toUpperCase();
-    return params;
-  };
+    configData.sign = utils.sign(configData, this.config.apiKey);
+    return configData;
+  }
+
+  public queryOrder(queryParams: IQueryOrderParams): Promise<IQueryOrderResult> {
+    const query = queryParams as any;
+    return new Promise((resolve, reject) => {
+      query.nonce_str = query.nonce_str || utils.createNonceStr();
+      query.appid = this.config.appid;
+      query.mch_id = this.config.mch_id;
+      query.sign = utils.sign(query, this.config.apiKey);
+
+      request(
+        {
+          url: urls.ORDER_QUERY,
+          method: 'POST',
+          body: utils.buildXML({ xml: query }),
+        },
+        (err, res, body) => {
+          utils
+            .parseXML(body)
+            .then((result: IQueryOrderResult) => {
+              resolve(result);
+            })
+            .catch(err => {
+              reject(err);
+            });
+        }
+      );
+    });
+  }
+
+  public closeOrder(orderParams: IQueryOrderParams): Promise<ICloseResult> {
+    const order = orderParams as any;
+    return new Promise((resolve, reject) => {
+      order.nonce_str = order.nonce_str || utils.createNonceStr();
+      order.appid = this.config.appid;
+      order.mch_id = this.config.mch_id;
+      order.sign = utils.sign(order, this.config.apiKey);
+
+      request(
+        {
+          url: urls.CLOSE_ORDER,
+          method: 'POST',
+          body: utils.buildXML({ xml: order }),
+        },
+        (err, res, body) => {
+          utils
+            .parseXML(body)
+            .then(result => {
+              resolve(result as ICloseResult);
+            })
+            .catch(err => {
+              reject(err);
+            });
+        }
+      );
+    });
+  }
+
+  public refund(orderParams: IRefundParams): Promise<IRefundResult> {
+    const order = orderParams as any;
+    return new Promise((resolve, reject) => {
+      order.nonce_str = order.nonce_str || utils.createNonceStr();
+      order.appid = this.config.appid;
+      order.mch_id = this.config.mch_id;
+      order.sign = utils.sign(order, this.config.apiKey);
+
+      request(
+        {
+          url: urls.REFUND,
+          method: 'POST',
+          body: utils.buildXML({ xml: order }),
+          agentOptions: {
+            pfx: this.config.pfx,
+            passphrase: this.config.mch_id,
+          },
+        },
+        (err, response, body) => {
+          utils
+            .parseXML(body)
+            .then(result => {
+              resolve(result as IRefundResult);
+            })
+            .catch(err => {
+              reject(err);
+            });
+        }
+      );
+    });
+  }
+
+  public queryRefund(
+    orderParams: IQueryOrderParams
+  ): Promise<IQueryRefundResult> {
+    const order = orderParams as any;
+    return new Promise((resolve, reject) => {
+      if (
+        !(
+          order.transaction_id ||
+          order.out_trade_no ||
+          order.out_refund_no ||
+          order.refund_id
+        )
+      ) {
+        reject(new Error('缺少参数'));
+      }
+
+      order.nonce_str = order.nonce_str || utils.createNonceStr();
+      order.appid = this.config.appid;
+      order.mch_id = this.config.mch_id;
+      order.sign = utils.sign(order, this.config.apiKey);
+
+      request(
+        {
+          url: urls.REFUND_QUERY,
+          method: 'POST',
+          body: utils.buildXML({ xml: order }),
+        },
+        (err, response, body) => {
+          utils
+            .parseXML(body)
+            .then(result => {
+              resolve(result as IQueryRefundResult);
+            })
+            .catch(err => {
+              reject(err);
+            });
+        }
+      );
+    });
+  }
+
+  public signVerify(notification): boolean {
+    const dataForSign = Object.assign({}, notification);
+    delete dataForSign.sign;
+    const signValue = utils.sign(dataForSign, this.config.apiKey);
+    return signValue === notification.sign;
+  }
 
   public success(): string {
-    return WechatPaymentUtils.buildXML({ xml: { return_code: 'SUCCESS' } });
+    return utils.buildXML({ xml: { return_code: 'SUCCESS' } });
   }
 
   public fail(): string {
-    return WechatPaymentUtils.buildXML({ xml: { return_code: 'FAIL' } });
+    return utils.buildXML({ xml: { return_code: 'FAIL' } });
   }
 }

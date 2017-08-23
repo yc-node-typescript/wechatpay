@@ -1,5 +1,5 @@
 import * as index from '../src/index';
 
-test('Should have Greeter available', () => {
+test('Should have Wechat available', () => {
   expect(index.Wechatpay).toBeTruthy();
 });
