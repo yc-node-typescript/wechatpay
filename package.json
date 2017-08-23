@@ -1,16 +1,17 @@
 {
-  "name": "wechatpay",
-  "version": "0.0.0",
-  "description": "wechatpay",
+  "name": "@ycnt/wechatpay",
+  "version": "1.0.0",
+  "description": "a Wechat payment library",
   "license": "MIT",
   "repository": "",
   "author": {
-    "name": "",
-    "email": "",
+    "name": "Yu Chen",
+    "email": "yu.chen@live.ie",
     "url": ""
   },
   "keywords": [
-    ""
+    "wechat",
+    "payment"
   ],
   "files": [
     "lib"
