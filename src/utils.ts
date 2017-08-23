@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import * as xml2js from 'xml2js';
-
+import * as nhm  from 'nhm';
 export function sign(object, key) {
   let querystring = createQueryString(object);
   querystring += '&key=' + key;
@@ -17,9 +17,12 @@ export function shaSign(object) {
 export function createNonceStr(length?: number): string {
   length = length || 24;
   if (length > 32) length = 32;
-  return (Math.random().toString(36).substr(2, 12) +
-    Math.random().toString(36).substr(2, 12) + 
-    Math.random().toString(36).substr(2, 12)).substr(0, length);
+  return new nhm(length , {
+     lowerCase : true,
+     upperCase : false,
+     number: true,
+     symbol: false,
+  }).toString();
 }
 
 export function createQueryString(options) {
