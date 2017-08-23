@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import * as xml2js from 'xml2js';
+import * as nhm from 'nhm';
 
 export function sign(object, key) {
   let querystring = createQueryString(object);
@@ -7,19 +8,15 @@ export function sign(object, key) {
   return createHash('md5').update(querystring).digest('hex').toUpperCase();
 }
 
-export function shaSign(object) {
-  // var querystring = createQueryString(object);
-  // let shaObj = new jsSHA("SHA-1", 'TEXT');
-  // shaObj.update(querystring);
-  // return shaObj.getHash('HEX');
-}
-
 export function createNonceStr(length?: number): string {
   length = length || 24;
   if (length > 32) length = 32;
-  return (Math.random().toString(36).substr(2, 12) +
-    Math.random().toString(36).substr(2, 12) + 
-    Math.random().toString(36).substr(2, 12)).substr(0, length);
+  return new nhm(length, {
+    lowerCase: true,
+    upperCase: false,
+    number: true,
+    symbol: false,
+  }).toString();
 }
 
 export function createQueryString(options) {
@@ -43,7 +40,7 @@ export function buildXML(json) {
   return builder.buildObject(json);
 }
 
-export function parseXML(xml) {
+export function parseXML(xml): Promise<any> {
   return new Promise((resolve, reject) => {
     const parser = new xml2js.Parser({
       trim: true,
