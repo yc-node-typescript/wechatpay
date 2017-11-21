@@ -139,9 +139,9 @@ describe('mweb order', () => {
         h5_info: {
           type: 'Wap',
           wap_url: 'http://wxpayment_notify_url',
-          wap_name: 'Test'
-        }
-      }
+          wap_name: 'Test',
+        },
+      },
     };
 
     const order = await wechatpay.createUnifiedOrder(orderParams);
