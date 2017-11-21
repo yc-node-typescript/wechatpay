@@ -16,7 +16,7 @@ export interface IOrderParams {
   total_fee: number;
   spbill_create_ip: string;
   notify_url: string;
-  trade_type: 'APP' | 'JSAPI' | 'NATIVE' | 'MWEB' ; // APP, JSAPI, NATIVE etc.
+  trade_type: 'APP' | 'JSAPI' | 'NATIVE' | 'MWEB'; // APP, JSAPI, NATIVE etc.
 
   device_info?: string; // 终端设备号(门店号或收银设备ID)，注意：PC网页或公众号内支付请传"WEB"
   detail?: string; // 商品详情
@@ -41,9 +41,8 @@ export interface IOrderParams {
       name?: string;
       area_code?: string;
       address?: string;
-    }
-  }
-
+    };
+  };
 }
 
 export interface IOrderResult {
@@ -170,7 +169,7 @@ export class Wechatpay {
     order.nonce_str = order.nonce_str || utils.createNonceStr();
     order.appid = this.config.appid;
     order.mch_id = this.config.mch_id;
-    if(order.scene_info) {
+    if (order.scene_info) {
       order.scene_info = JSON.stringify(order.scene_info);
     }
     order.sign = utils.sign(order, this.config.apiKey);
