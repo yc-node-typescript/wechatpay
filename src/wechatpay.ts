@@ -7,8 +7,6 @@ export interface IConfig {
   appid: string; // APP ID
   mch_id: string; // 商户 ID
   apiKey: string; // 微信商户平台API密钥
-  notify_url: string; // 回调URL地址
-  trade_type: 'APP'; // APP, JSAPI, NATIVE etc.
   pfx: Buffer; // p12文件位置
 }
 
@@ -18,7 +16,34 @@ export interface IOrderParams {
   total_fee: number;
   spbill_create_ip: string;
   notify_url: string;
-  trade_type: string;
+  trade_type: 'APP' | 'JSAPI' | 'NATIVE' | 'MWEB' ; // APP, JSAPI, NATIVE etc.
+
+  device_info?: string; // 终端设备号(门店号或收银设备ID)，注意：PC网页或公众号内支付请传"WEB"
+  detail?: string; // 商品详情
+  attach?: string; // 附加数据
+  time_start?: string; // 交易起始时间 格式为yyyyMMddHHmmss
+  time_expire?: string; // 交易结束时间 格式为yyyyMMddHHmmss
+  goods_tag?: string; // 商品标记
+  product_id?: string; // 商品ID
+  limit_pay?: string; // 指定支付方式
+  openid?: string; // 用户标识
+  scene_info?: {
+    h5_info?: {
+      type: 'IOS' | 'Android' | 'Wap';
+      app_name?: string;
+      bundle_id?: string;
+      package_name?: string;
+      wap_url?: string;
+      wap_name?: string;
+    };
+    store_info?: {
+      id?: string;
+      name?: string;
+      area_code?: string;
+      address?: string;
+    }
+  }
+
 }
 
 export interface IOrderResult {
@@ -30,7 +55,7 @@ export interface IOrderResult {
   sign: string;
   result_code: 'SUCCESS' | 'FAIL';
   prepay_id: string;
-  trade_type: 'JSAPI' | 'APP' | 'NATIVE';
+  trade_type: 'JSAPI' | 'APP' | 'NATIVE' | 'MWEB';
 }
 
 export interface IQueryOrderParams {
@@ -141,10 +166,13 @@ export class Wechatpay {
   public async createUnifiedOrder(
     orderParams: IOrderParams
   ): Promise<IOrderResult> {
-    const order = orderParams as any;
+    const order: any = Object.assign({}, orderParams);
     order.nonce_str = order.nonce_str || utils.createNonceStr();
     order.appid = this.config.appid;
     order.mch_id = this.config.mch_id;
+    if(order.scene_info) {
+      order.scene_info = JSON.stringify(order.scene_info);
+    }
     order.sign = utils.sign(order, this.config.apiKey);
     const requestParam = {
       url: urls.UNIFIED_ORDER,
