@@ -20,8 +20,6 @@ const wechatpay = new Wechatpay({
   appid: 'xxxx',
   mch_id: 'xxxx',
   apiKey: 'xxxx', // 微信商户平台API密钥
-  notify_url: `http://example.com`,
-  trade_type: 'APP', // APP, JSAPI, NATIVE etc.
   pfx: readFileSync(resolve('xxxx/apiclient_cert.p12')),
 });
 ```
