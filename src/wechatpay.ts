@@ -184,6 +184,29 @@ export class Wechatpay {
   }
 
   public configForPayment(orderResult: IOrderResult): IPayment {
+    switch (orderResult.trade_type) {
+      case 'JSAPI':
+        return this.configForJSAPIPayment(orderResult);
+      default:
+        return this.configForAppPayment(orderResult);
+    }
+  }
+
+  private configForJSAPIPayment(orderResult: IOrderResult): IPayment {
+    const configData: any = {
+      appId: this.config.appid,
+      package: 'prepay_id=' + orderResult.prepay_id,
+      nonceStr: utils.createNonceStr(),
+      timeStamp: Math.floor(new Date().getTime() / 1000),
+      signType: 'MD5',
+    };
+    configData.paySign = utils.sign(configData, this.config.apiKey);
+    configData.timestamp = configData.timeStamp;
+    delete configData.timeStamp;
+    return configData;
+  }
+
+  private configForAppPayment(orderResult: IOrderResult): IPayment {
     const configData: any = {
       appid: this.config.appid,
       partnerid: this.config.mch_id,
