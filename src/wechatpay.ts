@@ -178,6 +178,7 @@ export class Wechatpay {
       method: 'POST',
       body: utils.buildXML(order),
     };
+    console.log('createUnifiedOrder', order);
     const res = await rp(requestParam);
     const xml = await utils.parseXML(res);
     return xml;
